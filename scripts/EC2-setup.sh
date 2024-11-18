@@ -18,8 +18,9 @@ curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compo
 chmod +x /usr/local/bin/docker-compose
 
 # Start Docker service
-systemctl start docker
-systemctl enable docker
+sudo systemctl start docker
+sudo usermod -a -G docker $USER
+sudo systemctl enable docker
 
 # Clone the repository (replace with your actual repo URL)
 git clone https://github.com/parsa-mre/dist-recommender /app
@@ -27,5 +28,5 @@ git clone https://github.com/parsa-mre/dist-recommender /app
 # Change to app directory
 cd /app
 
-# Start the services
-docker-compose up -d
+# Start only the master service
+# sudo docker-compose up -d master
