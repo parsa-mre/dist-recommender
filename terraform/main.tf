@@ -1,4 +1,3 @@
-# main.tf
 terraform {
   required_providers {
     aws = {
@@ -9,133 +8,170 @@ terraform {
 }
 
 provider "aws" {
-  region = "us-east-1" # Change to your preferred region
+  region = "us-east-1"
 }
 
-# VPC and Network Configuration
-resource "aws_vpc" "main" {
+# VPC
+resource "aws_vpc" "movie_rec_vpc" {
   cidr_block           = "10.0.0.0/16"
   enable_dns_hostnames = true
   enable_dns_support   = true
-
   tags = {
-    Name = "movie-recommender-vpc"
+    Name = "movie-rec-vpc"
   }
 }
 
-resource "aws_subnet" "main" {
-  vpc_id     = aws_vpc.main.id
-  cidr_block = "10.0.1.0/24"
-
+# Public Subnet
+resource "aws_subnet" "public_subnet" {
+  vpc_id                  = aws_vpc.movie_rec_vpc.id
+  cidr_block              = "10.0.1.0/24"
+  availability_zone       = "us-east-1a"
+  map_public_ip_on_launch = true
   tags = {
-    Name = "movie-recommender-subnet"
+    Name = "movie-rec-public-subnet"
   }
 }
 
-resource "aws_internet_gateway" "main" {
-  vpc_id = aws_vpc.main.id
-
+# Internet Gateway
+resource "aws_internet_gateway" "movie_rec_igw" {
+  vpc_id = aws_vpc.movie_rec_vpc.id
   tags = {
-    Name = "movie-recommender-igw"
+    Name = "movie-rec-igw"
   }
 }
 
-resource "aws_route_table" "main" {
-  vpc_id = aws_vpc.main.id
-
+# Route Table
+resource "aws_route_table" "public_rt" {
+  vpc_id = aws_vpc.movie_rec_vpc.id
   route {
     cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.main.id
+    gateway_id = aws_internet_gateway.movie_rec_igw.id
   }
-
   tags = {
-    Name = "movie-recommender-rt"
+    Name = "movie-rec-public-rt"
   }
 }
 
-resource "aws_route_table_association" "main" {
-  subnet_id      = aws_subnet.main.id
-  route_table_id = aws_route_table.main.id
+# Route Table Association
+resource "aws_route_table_association" "public_rt_asso" {
+  subnet_id      = aws_subnet.public_subnet.id
+  route_table_id = aws_route_table.public_rt.id
 }
 
 # Security Group
-resource "aws_security_group" "allow_traffic" {
-  name        = "allow_traffic"
-  description = "Allow inbound traffic"
-  vpc_id      = aws_vpc.main.id
+resource "aws_security_group" "movie_rec_sg" {
+  name        = "movie-rec-sg"
+  description = "Security group for movie recommendation system"
+  vpc_id      = aws_vpc.movie_rec_vpc.id
 
+  # SSH access
   ingress {
-    description = "HTTP"
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    description = "Redis"
-    from_port   = 6379
-    to_port     = 6379
-    protocol    = "tcp"
-    cidr_blocks = ["10.0.0.0/16"]
-  }
-
-  ingress {
-    description = "SSH"
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
+    description = "SSH access"
   }
 
+  # Flask API access
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "HTTP access"
+  }
+
+  # Redis access (internal)
+  ingress {
+    from_port   = 6379
+    to_port     = 6379
+    protocol    = "tcp"
+    self        = true
+    description = "Redis internal access"
+  }
+
+  # Allow all outbound traffic
   egress {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
+
+  tags = {
+    Name = "movie-rec-sg"
+  }
 }
 
 # EC2 Instances
 resource "aws_instance" "master" {
-  ami                    = "ami-0c55b159cbfafe1f0" # Ubuntu 20.04 LTS
+  ami                    = "ami-0c7217cdde317cfec" # Amazon Linux 2 AMI
   instance_type          = "t2.micro"
-  subnet_id              = aws_subnet.main.id
-  vpc_security_group_ids = [aws_security_group.allow_traffic.id]
-  key_name               = "your-key-pair-name" # Change this to your key pair
+  subnet_id              = aws_subnet.public_subnet.id
+  vpc_security_group_ids = [aws_security_group.movie_rec_sg.id]
+  key_name               = "dist-rec" # Make sure to create this key pair in AWS first
 
-  user_data = file("EC2_setup.sh")
+  user_data = file("../scripts/EC2-setup.sh")
+
+  root_block_device {
+    volume_size = 8
+    volume_type = "gp2"
+  }
 
   tags = {
-    Name = "movie-recommender-master"
+    Name = "movie-rec-master"
   }
 }
 
 resource "aws_instance" "worker" {
-  count                  = 4
-  ami                    = "ami-0c55b159cbfafe1f0" # Ubuntu 20.04 LTS
+  count                  = 2
+  ami                    = "ami-0c7217cdde317cfec"
   instance_type          = "t2.micro"
-  subnet_id              = aws_subnet.main.id
-  vpc_security_group_ids = [aws_security_group.allow_traffic.id]
-  key_name               = "your-key-pair-name" # Change this to your key pair
+  subnet_id              = aws_subnet.public_subnet.id
+  vpc_security_group_ids = [aws_security_group.movie_rec_sg.id]
+  key_name               = "dist-rec"
 
-  user_data = file("EC2_setup.sh")
+  user_data = file("../scripts/EC2-setup.sh")
+
+  root_block_device {
+    volume_size = 8
+    volume_type = "gp2"
+  }
 
   tags = {
-    Name = "movie-recommender-worker-${count.index}"
+    Name = "movie-rec-worker-${count.index}"
   }
 }
 
 resource "aws_instance" "redis" {
-  ami                    = "ami-0c55b159cbfafe1f0" # Ubuntu 20.04 LTS
+  ami                    = "ami-0c7217cdde317cfec"
   instance_type          = "t2.micro"
-  subnet_id              = aws_subnet.main.id
-  vpc_security_group_ids = [aws_security_group.allow_traffic.id]
-  key_name               = "your-key-pair-name" # Change this to your key pair
+  subnet_id              = aws_subnet.public_subnet.id
+  vpc_security_group_ids = [aws_security_group.movie_rec_sg.id]
+  key_name               = "dist-rec"
 
-  user_data = file("EC2_setup.sh")
+  user_data = file("../scripts/EC2-setup.sh")
+
+  root_block_device {
+    volume_size = 8
+    volume_type = "gp2"
+  }
 
   tags = {
-    Name = "movie-recommender-redis"
+    Name = "movie-rec-redis"
   }
+}
+
+# Outputs
+output "master_public_ip" {
+  value = aws_instance.master.public_ip
+}
+
+output "worker_public_ips" {
+  value = aws_instance.worker[*].public_ip
+}
+
+output "redis_public_ip" {
+  value = aws_instance.redis.public_ip
 }
