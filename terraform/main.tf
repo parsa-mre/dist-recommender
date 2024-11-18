@@ -70,7 +70,6 @@ resource "aws_security_group" "movie_rec_sg" {
     to_port     = 22
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
-    description = "SSH access"
   }
 
   # Flask API access
@@ -79,7 +78,6 @@ resource "aws_security_group" "movie_rec_sg" {
     to_port     = 80
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
-    description = "HTTP access"
   }
 
   # Redis access (internal)
@@ -87,8 +85,7 @@ resource "aws_security_group" "movie_rec_sg" {
     from_port   = 6379
     to_port     = 6379
     protocol    = "tcp"
-    self        = true
-    description = "Redis internal access"
+    cidr_blocks = ["10.0.0.0/16"] # Allow access within VPC
   }
 
   # Allow all outbound traffic
@@ -105,14 +102,39 @@ resource "aws_security_group" "movie_rec_sg" {
 }
 
 # EC2 Instances
-resource "aws_instance" "master" {
-  ami                    = "ami-0c7217cdde317cfec" # Amazon Linux 2 AMI
+resource "aws_instance" "redis" {
+  ami                    = "ami-0c7217cdde317cfec"
   instance_type          = "t2.micro"
   subnet_id              = aws_subnet.public_subnet.id
   vpc_security_group_ids = [aws_security_group.movie_rec_sg.id]
-  key_name               = "dist-rec" # Make sure to create this key pair in AWS first
+  key_name               = "dist-rec"
 
-  user_data = file("../scripts/EC2-setup.sh")
+  user_data = templatefile("../scripts/EC2-setup.sh", {
+    INSTANCE_TYPE = "redis"
+    REDIS_HOST    = "localhost"
+  })
+
+  root_block_device {
+    volume_size = 8
+    volume_type = "gp2"
+  }
+
+  tags = {
+    Name = "movie-rec-redis"
+  }
+}
+
+resource "aws_instance" "master" {
+  ami                    = "ami-0c7217cdde317cfec"
+  instance_type          = "t2.micro"
+  subnet_id              = aws_subnet.public_subnet.id
+  vpc_security_group_ids = [aws_security_group.movie_rec_sg.id]
+  key_name               = "dist-rec"
+
+  user_data = templatefile("../scripts/EC2-setup.sh", {
+    INSTANCE_TYPE = "master"
+    REDIS_HOST    = aws_instance.redis.private_ip
+  })
 
   root_block_device {
     volume_size = 8
@@ -122,6 +144,8 @@ resource "aws_instance" "master" {
   tags = {
     Name = "movie-rec-master"
   }
+
+  depends_on = [aws_instance.redis]
 }
 
 resource "aws_instance" "worker" {
@@ -132,7 +156,10 @@ resource "aws_instance" "worker" {
   vpc_security_group_ids = [aws_security_group.movie_rec_sg.id]
   key_name               = "dist-rec"
 
-  user_data = file("../scripts/EC2-setup.sh")
+  user_data = templatefile("../scripts/EC2-setup.sh", {
+    INSTANCE_TYPE = "worker"
+    REDIS_HOST    = aws_instance.redis.private_ip
+  })
 
   root_block_device {
     volume_size = 8
@@ -142,25 +169,8 @@ resource "aws_instance" "worker" {
   tags = {
     Name = "movie-rec-worker-${count.index}"
   }
-}
 
-resource "aws_instance" "redis" {
-  ami                    = "ami-0c7217cdde317cfec"
-  instance_type          = "t2.micro"
-  subnet_id              = aws_subnet.public_subnet.id
-  vpc_security_group_ids = [aws_security_group.movie_rec_sg.id]
-  key_name               = "dist-rec"
-
-  user_data = file("../scripts/EC2-setup.sh")
-
-  root_block_device {
-    volume_size = 8
-    volume_type = "gp2"
-  }
-
-  tags = {
-    Name = "movie-rec-redis"
-  }
+  depends_on = [aws_instance.redis]
 }
 
 # Outputs

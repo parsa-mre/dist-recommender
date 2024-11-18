@@ -26,7 +26,23 @@ sudo systemctl enable docker
 git clone https://github.com/parsa-mre/dist-recommender /app
 
 # Change to app directory
+# Change to app directory
 cd /app
 
-# Start only the master service
-# sudo docker-compose up -d master
+# Create environment file
+cat > .env << EOF
+REDIS_URL=redis://${REDIS_HOST}:6379/0
+EOF
+
+# Start the appropriate service based on instance type
+case "${INSTANCE_TYPE}" in
+  "redis")
+    sudo docker-compose up -d redis
+    ;;
+  "master")
+    sudo docker-compose up -d master
+    ;;
+  "worker")
+    sudo docker-compose up -d worker
+    ;;
+esac

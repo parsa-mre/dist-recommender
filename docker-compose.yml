@@ -1,4 +1,3 @@
-# docker-compose.yml
 version: "3"
 
 services:
@@ -6,21 +5,46 @@ services:
         image: redis:latest
         ports:
             - "6379:6379"
+        networks:
+            - rec_network
+        restart: always
+        command: redis-server --appendonly yes
+        volumes:
+            - redis-data:/data
 
     master:
         build: ./master
         ports:
             - "80:80"
         environment:
-            - REDIS_URL=redis://redis:6379/0
+            - REDIS_URL=${REDIS_URL}
+            - GUNICORN_WORKERS=3
+            - GUNICORN_THREADS=2
+            - GUNICORN_TIMEOUT=120
+            - GUNICORN_WORKER_CLASS=gevent
+        networks:
+            - rec_network
+        restart: always
         depends_on:
             - redis
 
     worker:
         build: ./worker
         environment:
-            - REDIS_URL=redis://redis:6379/0
+            - REDIS_URL=${REDIS_URL}
+            - CELERY_WORKERS=2
+            - CELERY_MAX_TASKS_PER_CHILD=100
+            - CELERY_TASK_TIME_LIMIT=3600
+            - CELERY_TASK_SOFT_TIME_LIMIT=3540
+        networks:
+            - rec_network
+        restart: always
         depends_on:
             - redis
-        deploy:
-            replicas: 4
+
+networks:
+    rec_network:
+        driver: bridge
+
+volumes:
+    redis-data:

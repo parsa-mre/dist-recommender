@@ -2,23 +2,30 @@
 from celery import Celery
 import os
 
-app = Celery("tasks", broker=os.environ.get("REDIS_URL"))
+app = Celery(
+    "tasks", broker=os.environ.get("REDIS_URL"), backend=os.environ.get("REDIS_URL")
+)
 
 
-@app.task
-def test_connection(worker_id):
-    return f"Worker {worker_id} is connected and working"
+@app.task(bind=True, max_retries=3)
+def test_connection(self, worker_id):
+    try:
+        return f"Worker {worker_id} is connected and working"
+    except Exception as exc:
+        self.retry(exc=exc, countdown=10)
 
 
-@app.task
-def get_recommendations(user_id):
-    # Mock recommendation logic
-    # In reality, this would query the external DB and process data
-    return {
-        "user_id": user_id,
-        "recommendations": [
-            {"movie_id": 1, "score": 0.9},
-            {"movie_id": 2, "score": 0.8},
-            {"movie_id": 3, "score": 0.7},
-        ],
-    }
+@app.task(bind=True, max_retries=3)
+def get_recommendations(self, user_id):
+    try:
+        # Mock recommendation logic
+        return {
+            "user_id": user_id,
+            "recommendations": [
+                {"movie_id": 1, "score": 0.9},
+                {"movie_id": 2, "score": 0.8},
+                {"movie_id": 3, "score": 0.7},
+            ],
+        }
+    except Exception as exc:
+        self.retry(exc=exc, countdown=10)
