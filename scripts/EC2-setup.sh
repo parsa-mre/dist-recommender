@@ -22,7 +22,7 @@ systemctl start docker
 systemctl enable docker
 
 # Clone the repository (replace with your actual repo URL)
-git clone https://github.com/your-username/movie-recommender.git /app
+git clone https://github.com/parsa-mre/dist-recommender /app
 
 # Change to app directory
 cd /app
