@@ -1,7 +1,8 @@
 #!/bin/bash
 
+cd worker_app
 # Start Celery worker
-celery -A worker_app.tasks worker \
+celery -A tasks worker \
     --loglevel=INFO \
     --concurrency="${CELERY_WORKERS}" \
     --max-tasks-per-child="${CELERY_MAX_TASKS_PER_CHILD}" \
