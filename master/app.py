@@ -28,7 +28,7 @@ def test_workers():
     results = []
     for i in range(4):
         # Updated task name to match the worker's package structure
-        result = celery.send_task("worker_app.tasks.test_connection", args=[i])
+        result = celery.send_task("tasks.test_connection", args=[i])
         results.append(str(result))
     return jsonify({"status": "tasks_sent", "task_ids": results})
 
@@ -36,7 +36,7 @@ def test_workers():
 @app.route("/recommend/<user_id>")
 def recommend(user_id):
     # Updated task name to match the worker's package structure
-    result = celery.send_task("worker_app.tasks.get_recommendations", args=[user_id])
+    result = celery.send_task("tasks.get_recommendations", args=[user_id])
     return jsonify({"status": "processing", "task_id": str(result)})
 
 
