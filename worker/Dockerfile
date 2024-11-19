@@ -25,6 +25,8 @@ ENV PYTHONUNBUFFERED=1 \
     CELERY_TASK_TIME_LIMIT=3600 \
     CELERY_TASK_SOFT_TIME_LIMIT=3540
 
+ENV PYTHONPATH=/app/worker_app
+
 # Start Celery worker
 CMD ["celery", "-A", "worker_app.tasks", "worker", \
     "--loglevel=INFO", \
