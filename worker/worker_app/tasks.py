@@ -1,9 +1,21 @@
-# worker/tasks.py
+# worker/worker_app/tasks.py
 from celery import Celery
 import os
 
+# Initialize Celery app
 app = Celery(
-    "tasks", broker=os.environ.get("REDIS_URL"), backend=os.environ.get("REDIS_URL")
+    "worker_app",
+    broker=os.environ.get("REDIS_URL"),
+    backend=os.environ.get("REDIS_URL"),
+)
+
+# Configure Celery
+app.conf.update(
+    task_serializer="json",
+    accept_content=["json"],
+    result_serializer="json",
+    timezone="UTC",
+    enable_utc=True,
 )
 
 

@@ -4,7 +4,18 @@ from celery import Celery
 import os
 
 app = Flask(__name__)
-celery = Celery("tasks", broker=os.environ.get("REDIS_URL"))
+celery = Celery(
+    "master", broker=os.environ.get("REDIS_URL"), backend=os.environ.get("REDIS_URL")
+)
+
+# Configure Celery
+celery.conf.update(
+    task_serializer="json",
+    accept_content=["json"],
+    result_serializer="json",
+    timezone="UTC",
+    enable_utc=True,
+)
 
 
 @app.route("/health")
@@ -16,14 +27,16 @@ def health():
 def test_workers():
     results = []
     for i in range(4):
-        result = celery.send_task("tasks.test_connection", args=[i])
+        # Updated task name to match the worker's package structure
+        result = celery.send_task("worker_app.tasks.test_connection", args=[i])
         results.append(str(result))
     return jsonify({"status": "tasks_sent", "task_ids": results})
 
 
 @app.route("/recommend/<user_id>")
 def recommend(user_id):
-    result = celery.send_task("tasks.get_recommendations", args=[user_id])
+    # Updated task name to match the worker's package structure
+    result = celery.send_task("worker_app.tasks.get_recommendations", args=[user_id])
     return jsonify({"status": "processing", "task_id": str(result)})
 
 
