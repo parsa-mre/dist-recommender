@@ -7,6 +7,7 @@ app = Celery(
     "worker_app",
     broker=os.environ.get("REDIS_URL"),
     backend=os.environ.get("REDIS_URL"),
+    include=["worker_app.tasks"],
 )
 
 # Configure Celery
