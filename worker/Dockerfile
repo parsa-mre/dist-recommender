@@ -28,7 +28,7 @@ ENV PYTHONUNBUFFERED=1 \
 ENV PYTHONPATH=/app/worker_app
 
 # Start Celery worker
-CMD ["celery", "-A", "worker_app.tasks", "worker", \
+CMD ["celery", "-A", "worker_app", "worker", \
     "--loglevel=INFO", \
     "--concurrency=${CELERY_WORKERS}", \
     "--max-tasks-per-child=${CELERY_MAX_TASKS_PER_CHILD}", \
