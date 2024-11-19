@@ -30,19 +30,19 @@ git clone https://github.com/parsa-mre/dist-recommender /app
 cd /app
 
 # Create environment file
-cat > .env << EOF
+sudo cat > .env << EOF
 REDIS_URL=redis://${REDIS_HOST}:6379/0
 EOF
 
 # Start the appropriate service based on instance type
 case "${INSTANCE_TYPE}" in
   "redis")
-    sudo docker-compose up -d redis
+    sudo docker compose up -d redis
     ;;
   "master")
-    sudo docker-compose up -d master
+    sudo docker compose up -d master
     ;;
   "worker")
-    sudo docker-compose up -d worker
+    sudo docker compose up -d worker
     ;;
 esac
