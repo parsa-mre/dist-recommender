@@ -1,1 +1,1 @@
-from worker_app.tasks import app
+# from worker_app.tasks import app

@@ -16,6 +16,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the worker package
 COPY worker_app ./worker_app
 
+# Copy the start.sh script and set permissions
+COPY start.sh /app/start.sh
+RUN chmod +x /app/start.sh
+
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -25,12 +29,5 @@ ENV PYTHONUNBUFFERED=1 \
     CELERY_TASK_TIME_LIMIT=3600 \
     CELERY_TASK_SOFT_TIME_LIMIT=3540
 
-ENV PYTHONPATH=/app/worker_app
-
-# Start Celery worker
-CMD ["celery", "-A", "worker_app", "worker", \
-    "--loglevel=INFO", \
-    "--concurrency=${CELERY_WORKERS}", \
-    "--max-tasks-per-child=${CELERY_MAX_TASKS_PER_CHILD}", \
-    "--time-limit=${CELERY_TASK_TIME_LIMIT}", \
-    "--soft-time-limit=${CELERY_TASK_SOFT_TIME_LIMIT}"]
+# Use start.sh as the entry point
+CMD ["/app/start.sh"]
